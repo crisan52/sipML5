@@ -38,6 +38,26 @@
         var oReadyStateTimer;
         var registryTimer;
 
+        //Configuracion de parametros para WEB RTC
+        var disabledVideo = true;
+        var enabledRTCWEBBreaker = false;
+        var hostServerCalls = "192.168.68.113";
+        var webSocketServerURL = "wss://" + hostServerCalls + ":8089/ws"; //e.g. ws://sipml5.org:5062
+        var sipOutBoundProxyURL = null; //e.g. udp://sipml5.org:5060
+        var iceServers = null; //[{"urls": "stun:ice.buniapp.com:3478"}, {"urls": "turn:ice.buniapp.com:3478", "username": "aryavoip", "credential": "aryavoip@123"}].  //e.g. [{ url: 'stun:stun.l.google.com:19302'}, { url:'turn:user@numb.viagenie.ca', credential:'myPassword'}]
+        var bandWidth = null; //{ audio:64, video:512 } 
+        var videoSize = null; //{ minWidth: 640, minHeight:480, maxWidth: 640, maxHeight:480 }
+        var enabled3GPPEarlyIMS = true;
+        var disableDebug = true;
+        var cacheMediaStream = true;
+        var disableCallButton = true;
+
+        var pbxClient = "11002";
+        var pbxSIPClient = "sip:" + pbxClient +"@" + hostServerCalls;
+        var pbxPassword = "abc.12345A";
+
+        var pbxToCall = "1100";
+
         C =
         {
             divKeyPadWidth: 220
@@ -52,7 +72,7 @@
             document.body.onkeyup = onKeyUp;
 
             // set debug level
-            SIPml.setDebugLevel((window.localStorage && window.localStorage.getItem('org.doubango.expert.disable_debug') == "true") ? "error" : "info");
+            SIPml.setDebugLevel((disableDebug == "true") ? "error" : "info");
 
             loadCredentials();
             loadCallOptions();
@@ -194,14 +214,14 @@
             if (window.localStorage) {
                 var s_value;
                 // if ((s_value = window.localStorage.getItem('org.doubango.call.phone_number'))) txtPhoneNumber.value = s_value;
-                bDisableVideo = (window.localStorage.getItem('org.doubango.expert.disable_video') == "true");
+                bDisableVideo = (disabledVideo == "true");
             }
         }
 
         function saveCallOptions() {
             if (window.localStorage) {
                 window.localStorage.setItem('org.doubango.call.phone_number', txtPhoneNumber.value);
-                window.localStorage.setItem('org.doubango.expert.disable_video', bDisableVideo ? "true" : "false");
+                disabledVideo = bDisableVideo  ? "true" : "false";
             }
         }
 
@@ -216,25 +236,22 @@
             //     if ((s_value = window.localStorage.getItem('org.doubango.identity.realm'))) txtRealm.value = s_value;
             // }
             // else {
-            // Credenciales para registrarse
-            txtDisplayName.value = "Call Center";
-            txtPrivateIdentity.value = "11002";
-            txtPublicIdentity.value = "sip:11002@192.168.68.113";
-            txtPassword.value = "abc.12345A";
-            txtRealm.value = "192.168.68.113";
-            txtPhoneNumber.value = "100";
-            
+            txtPrivateIdentity.value = pbxClient;
+            txtPublicIdentity.value = pbxSIPClient;
+            txtPassword.value = pbxPassword;
+            txtRealm.value = hostServerCalls;
+            txtPhoneNumber.value = pbxToCall;
         };
 
-        function saveCredentials() {
-            if (window.localStorage) {
-                window.localStorage.setItem('org.doubango.identity.display_name', txtDisplayName.value);
-                window.localStorage.setItem('org.doubango.identity.impi', txtPrivateIdentity.value);
-                window.localStorage.setItem('org.doubango.identity.impu', txtPublicIdentity.value);
-                window.localStorage.setItem('org.doubango.identity.password', txtPassword.value);
-                window.localStorage.setItem('org.doubango.identity.realm', txtRealm.value);
-            }
-        };
+        //function saveCredentials() {
+            // if (window.localStorage) {
+            //     window.localStorage.setItem('org.doubango.identity.display_name', txtDisplayName.value);
+            //     window.localStorage.setItem('org.doubango.identity.impi', txtPrivateIdentity.value);
+            //     window.localStorage.setItem('org.doubango.identity.impu', txtPublicIdentity.value);
+            //     window.localStorage.setItem('org.doubango.identity.password', txtPassword.value);
+            //     window.localStorage.setItem('org.doubango.identity.realm', txtRealm.value);
+            // }
+        //};
 
         // sends SIP REGISTER request to login
         function sipRegister() {
@@ -259,10 +276,10 @@
                 }
 
                 // save credentials
-                saveCredentials();
+                //saveCredentials();
 
                 // update debug level to be sure new values will be used if the user haven't updated the page
-                SIPml.setDebugLevel((window.localStorage && window.localStorage.getItem('org.doubango.expert.disable_debug') == "true") ? "error" : "info");
+                SIPml.setDebugLevel((disableDebug == "true") ? "error" : "info");
 
                 // create SIP stack
                 oSipStack = new SIPml.Stack({
@@ -271,15 +288,15 @@
                     impu: txtPublicIdentity.value,
                     password: txtPassword.value,
                     display_name: txtDisplayName.value,
-                    websocket_proxy_url: (window.localStorage ? window.localStorage.getItem('org.doubango.expert.websocket_server_url') : null),
-                    outbound_proxy_url: (window.localStorage ? window.localStorage.getItem('org.doubango.expert.sip_outboundproxy_url') : null),
-                    ice_servers: (window.localStorage ? window.localStorage.getItem('org.doubango.expert.ice_servers') : null),
-                    enable_rtcweb_breaker: (window.localStorage ? window.localStorage.getItem('org.doubango.expert.enable_rtcweb_breaker') == "true" : false),
+                    websocket_proxy_url: webSocketServerURL,
+                    outbound_proxy_url: sipOutBoundProxyURL,
+                    ice_servers: iceServers,
+                    enable_rtcweb_breaker: (enabledRTCWEBBreaker == "true"),
                     events_listener: { events: '*', listener: onSipEventStack },
-                    enable_early_ims: (window.localStorage ? window.localStorage.getItem('org.doubango.expert.disable_early_ims') != "true" : true), // Must be true unless you're using a real IMS network
-                    enable_media_stream_cache: (window.localStorage ? window.localStorage.getItem('org.doubango.expert.enable_media_caching') == "true" : false),
-                    bandwidth: (window.localStorage ? tsk_string_to_object(window.localStorage.getItem('org.doubango.expert.bandwidth')) : null), // could be redefined a session-level
-                    video_size: (window.localStorage ? tsk_string_to_object(window.localStorage.getItem('org.doubango.expert.video_size')) : null), // could be redefined a session-level
+                    enable_early_ims: enabled3GPPEarlyIMS, // Must be true unless you're using a real IMS network
+                    enable_media_stream_cache: (cacheMediaStream == "true"),
+                    bandwidth: bandWidth, // could be redefined a session-level
+                    video_size: tsk_string_to_object(videoSize), // could be redefined a session-level
                     sip_headers: [
                             { name: 'User-Agent', value: 'IM-client/OMA1.0 sipML5-v1.2016.03.04' },
                             { name: 'Organization', value: 'Doubango Telecom' }
@@ -324,8 +341,8 @@
                 btnHangUp.disabled = false;
 
                 if (window.localStorage) {
-                    oConfigCall.bandwidth = tsk_string_to_object(window.localStorage.getItem('org.doubango.expert.bandwidth')); // already defined at stack-level but redifined to use latest values
-                    oConfigCall.video_size = tsk_string_to_object(window.localStorage.getItem('org.doubango.expert.video_size')); // already defined at stack-level but redifined to use latest values
+                    oConfigCall.bandwidth = tsk_string_to_object(bandWidth); // already defined at stack-level but redifined to use latest values
+                    oConfigCall.video_size = tsk_string_to_object(videoSize); // already defined at stack-level but redifined to use latest values
                 }
 
                 // create call session
@@ -462,7 +479,7 @@
             else if (evt.ctrlKey && evt.shiftKey) { // CTRL + SHIFT
                 if (evt.keyCode == 65 || evt.keyCode == 86) { // A (65) or V (86)
                     bDisableVideo = (evt.keyCode == 65);
-                    window.localStorage.setItem('org.doubango.expert.disable_video', bDisableVideo);
+                    disabledVideo = bDisableVideo
                 }
             }
         }
@@ -478,7 +495,7 @@
             switch (s_text) {
                 case "Call":
                     {
-                        var bDisableCallBtnOptions = (window.localStorage && window.localStorage.getItem('org.doubango.expert.disable_callbtn_options') == "true");
+                        var bDisableCallBtnOptions = (disableCallButton == "true");
                         btnCall.value = btnCall.innerHTML = bDisableCallBtnOptions ? 'Call' : 'Call <span id="spanCaret" class="caret">';
                         btnCall.setAttribute("class", bDisableCallBtnOptions ? "btn btn-primary" : "btn btn-primary dropdown-toggle");
                         btnCall.onclick = bDisableCallBtnOptions ? function () { sipCall('call-audio'); } : null;
